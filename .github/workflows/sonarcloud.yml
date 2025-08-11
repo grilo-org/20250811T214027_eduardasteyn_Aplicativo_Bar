@@ -1,0 +1,48 @@
+
+name: Grilo SC Analysis for Compiled Languages
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch: {}
+
+jobs:
+  scan:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necessário para análise do Sonar
+
+      # Baixa o build-wrapper do SonarSource
+      - name: Download Sonar build-wrapper
+        run: |
+          curl -sSLo build-wrapper.zip https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip
+          unzip -o build-wrapper.zip
+          mv build-wrapper-linux-x86 build-wrapper
+          echo "$(pwd )/build-wrapper" >> $GITHUB_PATH
+
+      # Tenta executar um build genérico dentro do wrapper
+      # O ideal seria ter um comando de build específico por linguagem aqui
+      # mas como fallback, tentamos um 'make' ou simplesmente prosseguimos
+      - name: Attempt to build with wrapper
+        run: |
+          # Um comando de build genérico. Pode ser melhorado com ifs por linguagem.
+          # Por enquanto, apenas executamos o wrapper para que o Sonar possa usá-lo.
+          build-wrapper-linux-x86-64 --out-dir bw-output echo "Attempting generic build"
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: >-
+            -Dsonar.projectKey=grilo-org_20250811T214027_eduardasteyn_Aplicativo_Bar
+            -Dsonar.projectName=20250811T214027_eduardasteyn_Aplicativo_Bar
+            -Dsonar.organization=grilo-org
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.cfamily.build-wrapper-output=bw-output
